@@ -16,7 +16,8 @@ class app:
     app.document_gen(self, response.text)
   
   def menu(self):
-    print(
+    print("v1.0.0")
+    print("Input exit to ext or promt to gen document file")
     x=input("Promt: ")
     if x!="exit":
       app.generate(self, x)
