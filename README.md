@@ -1,164 +1,147 @@
-# Gemini Document Generator
+# AI Document Generator
 
-A command-line tool for generating professional documents using Google's Gemini AI. The tool allows you to easily create well-formatted documents from AI-generated content.
+## Overview
 
-## Features
+This is a Python-based tool for generating Word documents (.docx) using various AI models from providers like Google Gemini, OpenAI (GPT), and xAI (Grok). It allows users to input prompts, generate content via AI, and save it in a templated document format. The tool supports CLI interaction, configuration via JSON, history tracking, and more.
 
-- Interactive command-line interface
-- Professional document formatting
-- Save history of generated documents
-- Configurable settings
-- Rich text UI with progress indicators (optional)
-- Customizable output directory
-- Multiple Gemini model support
+Key features:
+- Multi-provider AI support: Gemini, OpenAI, xAI (Grok).
+- Asynchronous content generation for efficiency.
+- Customizable templates for document formatting.
+- History logging of generated documents.
+- Rich console output (optional, via `rich` library).
+- Secure API key handling (environment variables preferred).
 
-## Installation
+## Project Structure
 
-### Prerequisites
+The code is modularized into the following files:
 
-- Python 3.8 or higher
-- A Google Gemini API key ([Get a key here](https://ai.google.dev/))
+- **`config.py`**: Handles configuration loading, saving, and history management. Defines enums for providers and models.
+- **`templates.py`**: Defines the document template for formatting generated .docx files.
+- **`ai_providers.py`**: Implements AI providers for Gemini, OpenAI, and xAI. Handles content generation asynchronously.
+- **`generator.py`**: Core logic for document generation, including setup, content creation, and processing prompts.
+- **`cli.py`**: CLI interface for interactive mode and argument parsing.
+- **`main.py`**: Entry point script to run the application.
 
-### Basic Installation
+## Requirements
+
+- Python 3.8+ (tested on 3.12).
+- Required libraries:
+  - `python-docx`: For generating .docx files.
+  - `google-generativeai`: For Gemini models.
+  - `openai`: For GPT models.
+  - `xai-sdk`: For Grok models (note: this may require specific installation; check xAI documentation).
+  - `rich` (optional): For enhanced console output with colors, progress bars, etc.
+  - `asyncio`: Built-in, for async operations.
+
+Install dependencies using pip:
 
 ```bash
-# Clone the repository
-git clone https://github.com/StasX-Official/gemini-doc-generator.git
-cd gemini-doc-generator
-
-# Install required dependencies
-pip install -r requirements.txt
+pip install python-docx google-generativeai openai xai-sdk rich
 ```
 
-### Dependencies
-
-The main dependencies are:
-
-```
-google-generativeai
-python-docx
-```
-
-For enhanced UI experience (optional but recommended):
-
-```
-rich
-```
+**Note**: Some libraries like `xai-sdk` might not be publicly available or could require authentication. Replace or mock as needed if not accessible.
 
 ## Configuration
 
-The application stores its configuration in `~/.gemini_docs/config.json`. You can set your API key in one of these ways:
+Configuration is stored in `~/.ai_docs/config.json` (created automatically on first run). Default settings:
 
-1. Environment variable: `export GEMINI_API_KEY=your_api_key`
-2. Enter it when prompted on first run
-3. Edit the config file directly
+# Document_GenAI
 
-The configuration file will be automatically created on first run with default settings.
+A concise, production-oriented tool for generating documents (.docx, .pptx) using multiple AI providers (OpenAI, Google Gemini, xAI, local diffusers).
 
-### Configuration Options
+## Summary
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `api_key` | Your Gemini API key | Empty (will prompt) |
-| `default_model` | Default Gemini model to use | "gemini-2.0-flash" |
-| `output_directory` | Directory to save generated documents | "generated_documents" |
-| `document_template` | Document template to use | "default" |
-| `log_level` | Logging level | "INFO" |
-| `history_enabled` | Enable/disable history tracking | true |
-| `max_history_items` | Maximum number of items in history | 50 |
-| `default_temperature` | Creativity level (0.0 to 1.0) | 0.7 |
+- Command-line interface for generating documents from prompts.
+- Multi-provider architecture with provider adapters implemented as skeletons.
+- Template-driven DOCX output, table export, and PPTX generation.
+- Optional image generation and image-based analysis when providers support it.
 
-## Usage
+## Installation
 
-### Interactive Mode
+1. Create and activate a virtual environment (recommended):
 
-Run the tool in interactive mode to enter prompts and generate documents:
-
-```bash
-python gemini_doc_generator.py
+```powershell
+python -m venv .venv; .\.venv\Scripts\Activate.ps1
 ```
 
-### Direct Prompt
+2. Install dependencies:
 
-Generate a document with a specific prompt and exit:
-
-```bash
-python gemini_doc_generator.py -p "Write a detailed business proposal for a renewable energy startup"
+```powershell
+pip install -r requirements.txt
 ```
 
-### Command-line Options
+3. Configure API keys via environment variables or the generated config file.
 
-```
-usage: gemini_doc_generator.py [-h] [-p PROMPT] [--config CONFIG] [--debug]
+## Configuration
 
-Gemini Document Generator
+The application creates a config file at `~/.ai_docs/config.json` on first run. Example environment variables (PowerShell):
 
-options:
-  -h, --help            show this help message and exit
-  -p PROMPT, --prompt PROMPT
-                        Generate a document with this prompt and exit
-  --config CONFIG       Path to custom config file
-  --debug               Enable debug logging
+```powershell
+$env:GEMINI_API_KEY = "your_gemini_key"
+$env:OPENAI_API_KEY = "your_openai_key"
+$env:XAI_API_KEY = "your_xai_key"
 ```
 
-## Document Output
+Important config keys:
 
-Generated documents are saved in the configured output directory (default: `./generated_documents/`). 
+- `api_keys` - provider API keys
+- `default_model` - default model identifier in `provider:model_name` format
+- `output_directory` - where generated files are stored
+- `default_temperature` - generation temperature
 
-Each document includes:
-- A title header
-- Generation metadata (timestamp, prompt)
-- Well-formatted content with proper spacing and indentation
-- A subtle footer
+## Usage (CLI)
 
-## Examples
+Start interactive mode:
 
-### Basic Usage
-
-```bash
-python gemini_doc_generator.py
+```powershell
+python main.py
 ```
 
-Then enter prompts like:
-- "Write a research summary on renewable energy technologies"
-- "Create a project plan for building a mobile application"
-- "Draft a business proposal for an AI-powered healthcare service"
+Generate a single document from a prompt:
 
-### Non-interactive Usage
-
-```bash
-python gemini_doc_generator.py -p "Write a comprehensive guide to machine learning algorithms"
+```powershell
+python main.py --prompt "Write a short overview of AI" --model "openai:gpt-4o"
 ```
 
-## Troubleshooting
+Main CLI flags:
 
-### API Key Issues
+- `--prompt, -p` prompt text
+- `--model, -m` model identifier (`provider:model_name`)
+- `--config` path to custom config file
+- `--image-prompt` prompt to generate an image
+- `--image-input` path to an image to analyze
 
-If you encounter authentication errors:
-1. Verify your API key is correct
-2. Check that your API key has permissions for the Gemini models
-3. Ensure you're not hitting API rate limits
+## Output formats
 
-### Missing Rich UI
+- DOCX (.docx) primary output
+- PPTX (.pptx) presentation output (requires `python-pptx`)
+- PDF via `docx2pdf` (optional, requires system support)
+- Markdown/HTML as plain text output
 
-If you don't see the enhanced UI, install the optional dependency:
-```bash
-pip install rich
+## Notes and limitations
+
+- The codebase is syntactically validated. Runtime requires installing dependencies listed in `requirements.txt`.
+- Provider implementations are a mix of working adapters and skeletons; actual behavior depends on provider SDKs and API keys.
+- Web UI (FastAPI) is not included by default; it can be added on request.
+
+## Quick smoke test
+
+After installing dependencies and setting API keys, run:
+
+```powershell
+python main.py --prompt "Test document" --model "openai:gpt-4o"
 ```
 
-### Windows-Specific Issues
+Check the configured `output_directory` (default `generated_documents`).
 
-On Windows, if you encounter event loop errors, the application automatically uses `WindowsSelectorEventLoopPolicy()` to address common asyncio issues.
+## Suggested next steps before release
+
+- Add unit and integration tests for generator and CLI.
+- Provide sample config files and example templates.
+- Implement FastAPI endpoints for a lightweight web UI if required.
+- Add CI (GitHub Actions) to run syntax checks and tests on push.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgements
-
-- Google Gemini AI for the content generation
-- python-docx for document creation
-- The Rich library for enhanced terminal UI
-
-## Copyright
- - Copyright (c) 2025 Kozosvyst Stas (StasX)
+MIT

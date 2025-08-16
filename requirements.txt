@@ -1,0 +1,41 @@
+# Core providers and HTTP
+openai
+google-generativeai
+xai-sdk
+requests
+
+# Document and image handling
+python-docx
+Pillow
+
+# Optional image generation / diffusion (heavy - optional)
+diffusers
+transformers
+torch
+
+# Conversions and rendering
+python-docx2pdf
+weasyprint
+
+# Visualization and audio
+matplotlib
+speechrecognition
+gTTS
+
+# Presentations and data
+python-pptx
+pandas
+
+# Web and server
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+
+# Translation and OCR
+deep-translator
+pytesseract
+
+
+# Utilities
+rich
