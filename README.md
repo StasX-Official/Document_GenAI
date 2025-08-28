@@ -132,16 +132,6 @@ After installing dependencies and setting API keys, run:
 ```powershell
 python main.py --prompt "Test document" --model "openai:gpt-4o"
 ```
-
-Check the configured `output_directory` (default `generated_documents`).
-
-## Suggested next steps before release
-
-- Add unit and integration tests for generator and CLI.
-- Provide sample config files and example templates.
-- Implement FastAPI endpoints for a lightweight web UI if required.
-- Add CI (GitHub Actions) to run syntax checks and tests on push.
-
 ## License
 
 MIT
