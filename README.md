@@ -1,3 +1,5 @@
+<img width="6912" height="3456" alt="g" src="https://github.com/user-attachments/assets/65fd6cab-ab1f-4dde-be17-6f219a65e3f8" />
+
 # AI Document Generator
 
 ## Overview
