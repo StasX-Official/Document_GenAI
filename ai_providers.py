@@ -1,172 +1,196 @@
+"""Provider adapters for the AI document generator."""
+from __future__ import annotations
+
 import asyncio
+import base64
+import importlib
+import importlib.util
 import logging
-from typing import Optional, Dict
+from dataclasses import dataclass
+from typing import Dict, Optional, Sequence
 
-try:
-    import google.generativeai as genai
-except ImportError:
-    genai = None
-
-try:
-    from openai import AsyncOpenAI
-except ImportError:
-    AsyncOpenAI = None
-
-try:
-    from xai_sdk import AsyncClient as AsyncXAIClient
-except ImportError:
-    AsyncXAIClient = None
-
-try:
-    from diffusers import StableDiffusionPipeline
-    import torch
-except Exception:
-    StableDiffusionPipeline = None
-    torch = None
-
-from .config import ProviderType
+from config import ProviderType
 
 logger = logging.getLogger(__name__)
 
+
+def _model_name(identifier: str) -> str:
+    return identifier.split(":", 1)[1] if ":" in identifier else identifier
+
+
+@dataclass
+class ProviderCapabilities:
+    supports_chat: bool = True
+    supports_images: bool = False
+    supports_vision: bool = False
+    native_formats: Sequence[str] = ()
+
+
 class AIProvider:
-    async def generate_content(self, prompt: str, model: str, temperature: float) -> Optional[str]:
+    """Base provider adapter."""
+
+    capabilities: ProviderCapabilities = ProviderCapabilities()
+
+    async def generate_content(self, prompt: str, model: str, temperature: float) -> Optional[str]:  # pragma: no cover - interface
         raise NotImplementedError
 
-    async def generate_image(self, prompt: str, size: str = "1024x1024") -> Optional[bytes]:
+    async def generate_image(self, prompt: str, size: str = "1024x1024") -> Optional[bytes]:  # pragma: no cover - interface
         return None
 
-    async def generate_from_image(self, image_bytes: bytes, prompt: Optional[str] = None) -> Optional[str]:
+    async def generate_from_image(self, image_bytes: bytes, prompt: Optional[str] = None) -> Optional[str]:  # pragma: no cover - interface
         return None
+
+
+def _lazy_import(module: str, attr: Optional[str] = None):
+    """Import a module or attribute lazily without wrapping in try/except."""
+    if importlib.util.find_spec(module) is None:
+        raise ImportError(f"Module '{module}' is required but not installed.")
+    mod = importlib.import_module(module)
+    return getattr(mod, attr) if attr else mod
+
 
 class GeminiProvider(AIProvider):
+    capabilities = ProviderCapabilities(supports_chat=True, supports_images=True, supports_vision=True)
+
     def __init__(self, api_key: str):
-        if not genai:
-            raise ImportError("google-generativeai is not installed")
+        genai = _lazy_import("google.generativeai")
         genai.configure(api_key=api_key)
+        self._genai = genai
 
     async def generate_content(self, prompt: str, model: str, temperature: float) -> Optional[str]:
         try:
-            full_model = model.split(':')[1]
-            gen_model = genai.GenerativeModel(
-                model_name=full_model,
-                generation_config=genai.GenerationConfig(temperature=temperature)
+            model_name = _model_name(model)
+            gen_model = self._genai.GenerativeModel(
+                model_name=model_name,
+                generation_config=self._genai.GenerationConfig(temperature=temperature),
             )
             response = await gen_model.generate_content_async(prompt)
             return response.text
-        except Exception as e:
-            logger.error(f"Gemini error: {e}")
+        except Exception as exc:  # pragma: no cover - network interaction
+            logger.error("Gemini content generation failed: %s", exc)
+            return None
+
+    async def generate_image(self, prompt: str, size: str = "1024x1024") -> Optional[bytes]:
+        if not hasattr(self._genai, "ImageGenerationModel"):
+            return None
+        try:
+            _, width, height = size.partition("x")
+            generation_model = self._genai.ImageGenerationModel("imagen-3.0-generate-001")
+            image = await generation_model.generate_image_async(prompt, width=int(width or 1024), height=int(height or 1024))
+            return image.image_bytes if hasattr(image, "image_bytes") else None
+        except Exception as exc:  # pragma: no cover - network interaction
+            logger.debug("Gemini image generation unavailable: %s", exc)
             return None
 
     async def generate_from_image(self, image_bytes: bytes, prompt: Optional[str] = None) -> Optional[str]:
         try:
-            if not genai:
-                raise ImportError("google-generativeai is not installed")
-            model = genai.GenerativeModel(model_name="image-bison-001")
-            response = await model.generate_image_caption_async(image_bytes, prompt or "Describe the image")
-            return getattr(response, 'caption', None) or str(response)
-        except Exception as e:
-            logger.debug(f"Gemini image processing not available: {e}")
+            model = self._genai.GenerativeModel(model_name="gemini-1.5-pro")
+            response = await model.generate_content_async([
+                {"mime_type": "image/png", "data": image_bytes},
+                prompt or "Describe the image",
+            ])
+            return response.text
+        except Exception as exc:  # pragma: no cover
+            logger.debug("Gemini vision unavailable: %s", exc)
             return None
 
+
 class OpenAIProvider(AIProvider):
+    capabilities = ProviderCapabilities(supports_chat=True, supports_images=True, supports_vision=False)
+
     def __init__(self, api_key: str):
-        if not AsyncOpenAI:
-            raise ImportError("openai is not installed")
+        AsyncOpenAI = _lazy_import("openai", "AsyncOpenAI")
         self.client = AsyncOpenAI(api_key=api_key)
 
     async def generate_content(self, prompt: str, model: str, temperature: float) -> Optional[str]:
         try:
-            full_model = model.split(':')[1]
+            model_name = _model_name(model)
             response = await self.client.chat.completions.create(
-                model=full_model,
+                model=model_name,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=temperature
+                temperature=temperature,
             )
             return response.choices[0].message.content
-        except Exception as e:
-            logger.error(f"OpenAI error: {e}")
+        except Exception as exc:  # pragma: no cover - network interaction
+            logger.error("OpenAI content generation failed: %s", exc)
             return None
 
     async def generate_image(self, prompt: str, size: str = "1024x1024") -> Optional[bytes]:
         try:
-            if not AsyncOpenAI:
-                raise ImportError("openai is not installed")
-            resp = await self.client.images.generate(model="gpt-image-1", prompt=prompt, size=size)
-            import base64
-            b64 = resp.data[0].b64_json
-            return base64.b64decode(b64)
-        except Exception as e:
-            logger.debug(f"OpenAI image generation not available: {e}")
+            response = await self.client.images.generate(model="gpt-image-1", prompt=prompt, size=size)
+            payload = response.data[0].b64_json
+            return base64.b64decode(payload)
+        except Exception as exc:  # pragma: no cover - network interaction
+            logger.debug("OpenAI image generation unavailable: %s", exc)
             return None
 
-    async def generate_from_image(self, image_bytes: bytes, prompt: Optional[str] = None) -> Optional[str]:
-        try:
-            return None
-        except Exception as e:
-            logger.debug(f"OpenAI image processing not available: {e}")
-            return None
 
 class XAIProvider(AIProvider):
+    capabilities = ProviderCapabilities(supports_chat=True, supports_images=False, supports_vision=False)
+
     def __init__(self, api_key: str):
-        if not AsyncXAIClient:
-            raise ImportError("xai-sdk is not installed")
+        AsyncXAIClient = _lazy_import("xai_sdk", "AsyncClient")
         self.client = AsyncXAIClient(api_key=api_key)
 
     async def generate_content(self, prompt: str, model: str, temperature: float) -> Optional[str]:
         try:
-            full_model = model.split(':')[1]
+            model_name = _model_name(model)
             chat = await self.client.chat.create(
-                model=full_model,
-                messages=[{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": prompt}]
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": "You are a meticulous technical writer."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=temperature,
             )
             response = await chat.asample()
             return response.content
-        except Exception as e:
-            logger.error(f"xAI error: {e}")
+        except Exception as exc:  # pragma: no cover - network interaction
+            logger.error("xAI content generation failed: %s", exc)
             return None
-
-    async def generate_image(self, prompt: str, size: str = "1024x1024") -> Optional[bytes]:
-        try:
-            return None
-        except Exception as e:
-            logger.debug(f"xAI image generation not available: {e}")
-            return None
-
-    async def generate_from_image(self, image_bytes: bytes, prompt: Optional[str] = None) -> Optional[str]:
-        try:
-            return None
-        except Exception as e:
-            logger.debug(f"xAI image processing not available: {e}")
-            return None
-
-def get_provider(provider_type: ProviderType, api_key: str) -> AIProvider:
-    if provider_type == ProviderType.GEMINI:
-        return GeminiProvider(api_key)
-    elif provider_type == ProviderType.OPENAI:
-        return OpenAIProvider(api_key)
-    elif provider_type == ProviderType.XAI:
-        return XAIProvider(api_key)
-    elif provider_type == ProviderType.DIFFUSERS:
-        return DiffusersProvider(api_key)
-    raise ValueError(f"Unknown provider: {provider_type}")
 
 
 class DiffusersProvider(AIProvider):
+    capabilities = ProviderCapabilities(supports_chat=False, supports_images=True)
+
     def __init__(self, api_key: str = ""):
-        if not StableDiffusionPipeline:
-            raise ImportError("diffusers is not installed or available")
-        device = "cuda" if torch and torch.cuda.is_available() else "cpu"
-        self.pipe = StableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5")
+        pipe_cls = _lazy_import("diffusers", "StableDiffusionPipeline")
+        torch_mod = _lazy_import("torch")
+        device = "cuda" if torch_mod.cuda.is_available() else "cpu"
+        self.pipe = pipe_cls.from_pretrained("runwayml/stable-diffusion-v1-5")
         self.pipe.to(device)
 
     async def generate_image(self, prompt: str, size: str = "512x512") -> Optional[bytes]:
-        try:
-            width, height = [int(x) for x in size.split("x")]
-            image = self.pipe(prompt, num_inference_steps=25).images[0]
+        width_str, _, height_str = size.partition("x")
+        width = int(width_str or 512)
+        height = int(height_str or 512)
+        loop = asyncio.get_event_loop()
+
+        def _generate() -> bytes:
+            image = self.pipe(prompt, num_inference_steps=25, width=width, height=height).images[0]
             from io import BytesIO
-            buf = BytesIO()
-            image.save(buf, format='PNG')
-            return buf.getvalue()
-        except Exception as e:
-            logger.debug(f"Diffusers generation failed: {e}")
+
+            buffer = BytesIO()
+            image.save(buffer, format="PNG")
+            return buffer.getvalue()
+
+        try:
+            return await loop.run_in_executor(None, _generate)
+        except Exception as exc:  # pragma: no cover - heavy dependency
+            logger.debug("Diffusers image generation failed: %s", exc)
             return None
+
+
+_PROVIDER_MAP: Dict[ProviderType, type[AIProvider]] = {
+    ProviderType.GEMINI: GeminiProvider,
+    ProviderType.OPENAI: OpenAIProvider,
+    ProviderType.XAI: XAIProvider,
+    ProviderType.DIFFUSERS: DiffusersProvider,
+}
+
+
+def get_provider(provider_type: ProviderType, api_key: str) -> AIProvider:
+    provider_cls = _PROVIDER_MAP.get(provider_type)
+    if not provider_cls:
+        raise ValueError(f"Unknown provider: {provider_type}")
+    return provider_cls(api_key)

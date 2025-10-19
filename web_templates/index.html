@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>AI Document Generator</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>AI Document Generator</h1>
+      <p>Згенеруйте документ за допомогою моделей OpenAI, Gemini, Grok та локальних рушіїв.</p>
+      <p class="shortcuts">Комбінації клавіш: <strong>Ctrl + Enter</strong> — згенерувати, <strong>Ctrl + S</strong> — завантажити редагований текст, <strong>Ctrl + Shift + H</strong> — оновити історію.</p>
+    </header>
+    <main>
+      <section class="form-panel">
+        <form id="generate-form">
+          <label for="prompt">Промпт</label>
+          <textarea id="prompt" name="prompt" rows="6" placeholder="Опишіть документ..." required></textarea>
+
+          <label for="model">Модель</label>
+          <select id="model" name="model">
+            {% for provider, items in models.items() %}
+              <optgroup label="{{ provider|capitalize }}">
+                {% for item in items %}
+                  <option value="{{ item }}" {% if item == default_model %}selected{% endif %}>{{ item }}</option>
+                {% endfor %}
+              </optgroup>
+            {% endfor %}
+          </select>
+
+          <fieldset class="formats">
+            <legend>Формати виводу</legend>
+            {% set selected_formats = default_formats or [] %}
+            {% for fmt in ['docx','pdf','html','md','txt','pptx'] %}
+              <label>
+                <input type="checkbox" name="formats" value="{{ fmt }}" {% if fmt in selected_formats %}checked{% endif %} />
+                {{ fmt|upper }}
+              </label>
+            {% endfor %}
+          </fieldset>
+
+          <label class="toggle">
+            <input type="checkbox" id="enable-editing" name="enable_editing" />
+            Зберігати ревізії автоматично
+          </label>
+
+          <button type="submit" class="primary">Згенерувати</button>
+        </form>
+      </section>
+      <section class="output-panel">
+        <div class="editor-header">
+          <h2>Редактор результату</h2>
+          <div class="actions">
+            <button id="download-btn" type="button">Завантажити текст</button>
+            <button id="refresh-history" type="button">Оновити історію</button>
+          </div>
+        </div>
+        <textarea id="output" rows="18" placeholder="Згенерований контент з'явиться тут..." spellcheck="false"></textarea>
+        <div id="export-links"></div>
+        <section class="history">
+          <h3>Останні документи</h3>
+          <ul id="history-list"></ul>
+        </section>
+      </section>
+    </main>
+    <script type="module" src="/static/app.js"></script>
+  </body>
+</html>

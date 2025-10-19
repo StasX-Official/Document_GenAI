@@ -4,42 +4,45 @@
 
 ## Overview
 
-This is a Python-based tool for generating Word documents (.docx) using various AI models from providers like Google Gemini, OpenAI (GPT), and xAI (Grok). It allows users to input prompts, generate content via AI, and save it in a templated document format. The tool supports CLI interaction, configuration via JSON, history tracking, and more.
+This is a Python-based tool for generating professional documents in multiple formats (DOCX, PDF, HTML, Markdown, PPTX, TXT) using AI models from providers like Google Gemini, OpenAI (GPT family), and xAI (Grok). It ships with both an upgraded CLI and a FastAPI web dashboard, includes a revision workflow, and keeps a searchable history of generated artefacts.
 
 Key features:
-- Multi-provider AI support: Gemini, OpenAI, xAI (Grok).
-- Asynchronous content generation for efficiency.
-- Customizable templates for document formatting.
-- History logging of generated documents.
-- Rich console output (optional, via `rich` library).
-- Secure API key handling (environment variables preferred).
+- Multi-provider AI support: Gemini, OpenAI (GPT-4o, GPT-4.1, o1 and more), xAI Grok, plus a local Stable Diffusion image adapter.
+- FastAPI web interface with an in-browser editor, keyboard shortcuts, and live history.
+- Launcher utility to choose between the CLI and the web UI.
+- Asynchronous content generation with optional image creation and vision analysis when supported by the provider.
+- Interactive revision workflow that lets you refine generated copy before export and stores revision snapshots.
+- Customisable templates for Word, HTML, Markdown, and presentation exports.
+- History logging of generated documents and format types.
+- Rich console output (optional, via `rich` library) and configurable log levels.
 
 ## Project Structure
 
 The code is modularized into the following files:
 
-- **`config.py`**: Handles configuration loading, saving, and history management. Defines enums for providers and models.
-- **`templates.py`**: Defines the document template for formatting generated .docx files.
-- **`ai_providers.py`**: Implements AI providers for Gemini, OpenAI, and xAI. Handles content generation asynchronously.
-- **`generator.py`**: Core logic for document generation, including setup, content creation, and processing prompts.
-- **`cli.py`**: CLI interface for interactive mode and argument parsing.
-- **`main.py`**: Entry point script to run the application.
+- **`config.py`**: Handles configuration loading, saving, revision/history tracking and exposes provider/model catalogues.
+- **`templates.py`**: Provides templating helpers for DOCX, HTML, Markdown and PPTX exports.
+- **`ai_providers.py`**: Implements AI providers for Gemini, OpenAI, xAI (Grok) and local Diffusers, including capability metadata.
+- **`generator.py`**: Core logic for content generation, revision workflow, and multi-format exporting.
+- **`cli.py`**: Enhanced CLI interface with history/model listing, multi-format output, and optional editing step.
+- **`web_app.py`**: FastAPI application serving the interactive dashboard.
+- **`launcher.py`**: Convenience launcher that prompts for CLI or web mode.
+- **`main.py`**: Thin entry point delegating to the CLI.
 
 ## Requirements
 
 - Python 3.8+ (tested on 3.12).
 - Required libraries:
-  - `python-docx`: For generating .docx files.
-  - `google-generativeai`: For Gemini models.
-  - `openai`: For GPT models.
-  - `xai-sdk`: For Grok models (note: this may require specific installation; check xAI documentation).
-  - `rich` (optional): For enhanced console output with colors, progress bars, etc.
-  - `asyncio`: Built-in, for async operations.
+- `python-docx`, `python-pptx`, `docx2pdf`: Office exports.
+- `google-generativeai`, `openai`, `xai-sdk`: Gemini, GPT, Grok providers.
+- `fastapi`, `uvicorn`, `jinja2`: Web dashboard.
+- `rich`: Enhanced console output (optional).
+- `diffusers`, `torch`: Local Stable Diffusion image generation (optional but supported).
 
 Install dependencies using pip:
 
 ```bash
-pip install python-docx google-generativeai openai xai-sdk rich
+pip install -r requirements.txt
 ```
 
 **Note**: Some libraries like `xai-sdk` might not be publicly available or could require authentication. Replace or mock as needed if not accessible.
@@ -87,23 +90,25 @@ $env:XAI_API_KEY = "your_xai_key"
 
 Important config keys:
 
-- `api_keys` - provider API keys
-- `default_model` - default model identifier in `provider:model_name` format
-- `output_directory` - where generated files are stored
-- `default_temperature` - generation temperature
+- `api_keys` – provider API keys
+- `default_model` – default model identifier in `provider:model_name` format
+- `output_directory` – where generated files are stored
+- `default_temperature` – generation temperature
+- `default_formats` – default export formats (e.g. `docx`, `pdf`, ...)
+- `auto_open_editor` – whether the CLI opens the revision workflow automatically
 
 ## Usage (CLI)
 
-Start interactive mode:
+Launch the interactive CLI:
 
 ```powershell
 python main.py
 ```
 
-Generate a single document from a prompt:
+Generate a document bundle in several formats:
 
 ```powershell
-python main.py --prompt "Write a short overview of AI" --model "openai:gpt-4o"
+python main.py --prompt "Write a short overview of AI" --model "openai:gpt-4o" --format docx,pdf,html
 ```
 
 Main CLI flags:
@@ -113,19 +118,37 @@ Main CLI flags:
 - `--config` path to custom config file
 - `--image-prompt` prompt to generate an image
 - `--image-input` path to an image to analyze
+- `--format` comma-separated list of output formats (`docx,pdf,html,md,txt,pptx`)
+- `--list-models` optionally filtered provider for available models
+- `--history` show the most recent generated artefacts
+- `--no-edit` skip the CLI revision editor
+
+Run the web dashboard:
+
+```bash
+python -m web_app  # or: uvicorn web_app:app --reload
+```
+
+Use the launcher to choose interactively:
+
+```bash
+python launcher.py
+```
 
 ## Output formats
 
-- DOCX (.docx) primary output
-- PPTX (.pptx) presentation output (requires `python-pptx`)
-- PDF via `docx2pdf` (optional, requires system support)
-- Markdown/HTML as plain text output
+- DOCX (.docx)
+- PDF (via `docx2pdf` when available)
+- HTML (responsive single-page document)
+- Markdown (.md)
+- Plain text (.txt)
+- PowerPoint (.pptx) summarising the generated sections
 
 ## Notes and limitations
 
 - The codebase is syntactically validated. Runtime requires installing dependencies listed in `requirements.txt`.
 - Provider implementations are a mix of working adapters and skeletons; actual behavior depends on provider SDKs and API keys.
-- Web UI (FastAPI) is not included by default; it can be added on request.
+- The FastAPI web UI serves local files (`file://` links). On remote hosts consider mounting a shared volume or enabling downloads via another channel.
 
 ## Quick smoke test
 
