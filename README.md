@@ -1,139 +1,80 @@
-<img width="6912" height="3456" alt="g" src="https://github.com/user-attachments/assets/65fd6cab-ab1f-4dde-be17-6f219a65e3f8" />
-
 # AI Document Generator
 
-## Overview
+Modernized CLI toolkit for producing documents, presentations, and structured outputs with leading AI providers.
 
-This is a Python-based tool for generating Word documents (.docx) using various AI models from providers like Google Gemini, OpenAI (GPT), and xAI (Grok). It allows users to input prompts, generate content via AI, and save it in a templated document format. The tool supports CLI interaction, configuration via JSON, history tracking, and more.
+## Highlights
 
-Key features:
-- Multi-provider AI support: Gemini, OpenAI, xAI (Grok).
-- Asynchronous content generation for efficiency.
-- Customizable templates for document formatting.
-- History logging of generated documents.
-- Rich console output (optional, via `rich` library).
-- Secure API key handling (environment variables preferred).
+- Unified provider registry with adapters for OpenAI, Google Gemini, xAI, Anthropic, Mistral, Groq, Ollama, and local Diffusers
+- Configurable generation parameters (temperature, top_p, max_tokens) per request or session
+- Multi-format export (DOCX, PDF, HTML, Markdown, TXT, JSON) with automatic history tracking
+- Prompt batching from files or directories, interactive session commands, and secure prompt validation
+- Optional image generation and image-to-text analysis routed through provider capabilities
+- Video synthesis hooks for OpenAI, Runway, and Pika with configurable format and duration
+- Multilingual CLI onboarding (English, Ukrainian, Russian, Polish) with persistent locale selection
 
-## Project Structure
+## Project Layout
 
-The code is modularized into the following files:
+- `config.py` — persistent configuration manager, alias resolution, security policies
+- `ai_providers.py` — provider factory and async adapters
+- `security.py` — prompt and filesystem guard rails
+- `outputs.py` — artifact writers for each export format
+- `templates.py` — reusable renderers for DOCX, HTML, Markdown, PPTX
+- `generator.py` — orchestration pipeline tying configuration, providers, and outputs together
+- `cli.py` — rich CLI experience with batch and interactive workflows
+- `main.py` — entry point for command-line execution
 
-- **`config.py`**: Handles configuration loading, saving, and history management. Defines enums for providers and models.
-- **`templates.py`**: Defines the document template for formatting generated .docx files.
-- **`ai_providers.py`**: Implements AI providers for Gemini, OpenAI, and xAI. Handles content generation asynchronously.
-- **`generator.py`**: Core logic for document generation, including setup, content creation, and processing prompts.
-- **`cli.py`**: CLI interface for interactive mode and argument parsing.
-- **`main.py`**: Entry point script to run the application.
-
-## Requirements
-
-- Python 3.8+ (tested on 3.12).
-- Required libraries:
-  - `python-docx`: For generating .docx files.
-  - `google-generativeai`: For Gemini models.
-  - `openai`: For GPT models.
-  - `xai-sdk`: For Grok models (note: this may require specific installation; check xAI documentation).
-  - `rich` (optional): For enhanced console output with colors, progress bars, etc.
-  - `asyncio`: Built-in, for async operations.
-
-Install dependencies using pip:
-
-```bash
-pip install python-docx google-generativeai openai xai-sdk rich
-```
-
-**Note**: Some libraries like `xai-sdk` might not be publicly available or could require authentication. Replace or mock as needed if not accessible.
-
-## Configuration
-
-Configuration is stored in `~/.ai_docs/config.json` (created automatically on first run). Default settings:
-
-# Document_GenAI
-
-A concise, production-oriented tool for generating documents (.docx, .pptx) using multiple AI providers (OpenAI, Google Gemini, xAI, local diffusers).
-
-## Summary
-
-- Command-line interface for generating documents from prompts.
-- Multi-provider architecture with provider adapters implemented as skeletons.
-- Template-driven DOCX output, table export, and PPTX generation.
-- Optional image generation and image-based analysis when providers support it.
-
-## Installation
-
-1. Create and activate a virtual environment (recommended):
+## Setup
 
 ```powershell
 python -m venv .venv; .\.venv\Scripts\Activate.ps1
-```
-
-2. Install dependencies:
-
-```powershell
 pip install -r requirements.txt
 ```
 
-3. Configure API keys via environment variables or the generated config file.
+Populate API keys via environment variables or the generated `~/.ai_docs/config.json` file. Supported keys: `OPENAI_API_KEY`, `GEMINI_API_KEY`, `XAI_API_KEY`, `ANTHROPIC_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`. Ollama and Diffusers default to local endpoints and do not require keys.
 
-## Configuration
+On first launch the CLI will prompt for a preferred language (English, Українська, Русский, Polski) and remember the selection for subsequent runs.
 
-The application creates a config file at `~/.ai_docs/config.json` on first run. Example environment variables (PowerShell):
+## Usage
 
-```powershell
-$env:GEMINI_API_KEY = "your_gemini_key"
-$env:OPENAI_API_KEY = "your_openai_key"
-$env:XAI_API_KEY = "your_xai_key"
-```
-
-Important config keys:
-
-- `api_keys` - provider API keys
-- `default_model` - default model identifier in `provider:model_name` format
-- `output_directory` - where generated files are stored
-- `default_temperature` - generation temperature
-
-## Usage (CLI)
-
-Start interactive mode:
+Single-shot generation:
 
 ```powershell
-python main.py
+python main.py --prompt "Outline the future of multimodal search" --model openai:gpt-4o --formats docx,pdf,markdown
 ```
 
-Generate a single document from a prompt:
+Batch prompts from files:
 
 ```powershell
-python main.py --prompt "Write a short overview of AI" --model "openai:gpt-4o"
+python main.py --prompt-dir prompts/ --model gemini:gemini-1.5-flash --temperature 0.4
 ```
 
-Main CLI flags:
-
-- `--prompt, -p` prompt text
-- `--model, -m` model identifier (`provider:model_name`)
-- `--config` path to custom config file
-- `--image-prompt` prompt to generate an image
-- `--image-input` path to an image to analyze
-
-## Output formats
-
-- DOCX (.docx) primary output
-- PPTX (.pptx) presentation output (requires `python-pptx`)
-- PDF via `docx2pdf` (optional, requires system support)
-- Markdown/HTML as plain text output
-
-## Notes and limitations
-
-- The codebase is syntactically validated. Runtime requires installing dependencies listed in `requirements.txt`.
-- Provider implementations are a mix of working adapters and skeletons; actual behavior depends on provider SDKs and API keys.
-- Web UI (FastAPI) is not included by default; it can be added on request.
-
-## Quick smoke test
-
-After installing dependencies and setting API keys, run:
+Interactive mode with live parameter tuning:
 
 ```powershell
-python main.py --prompt "Test document" --model "openai:gpt-4o"
+python main.py --model openai:gpt-4o
 ```
+
+Available interactive commands: `:model`, `:formats`, `:temperature`, `:top_p`, `:max_tokens`, `:video_prompt`, `:video_format`, `:video_duration`, `:language`, `:help`.
+
+Generate an accompanying video artifact (provider support required):
+
+```powershell
+python main.py --prompt "Storyboard a short product teaser" --model runway:gen2 --video-prompt "Cinematic teaser of a futuristic gadget" --video-format mp4 --video-duration 8
+```
+
+## Security
+
+All prompts pass through configurable validation (length limits, deny patterns, ASCII requirements) and artifact paths are sanitized to mitigate injection or traversal attacks.
+
+## Release Notes (v2.1.0)
+
+- Added persistent localization with English, Ukrainian, Russian, and Polish translations plus `:language` command
+- Introduced provider-agnostic video generation pipeline with configurable format and duration controls
+- Extended CLI and configuration to accept `--video-*` flags and expose version information via `--version`
+- Expanded output manager to persist video artifacts alongside existing document formats and JSON manifests
+- Hardened generator workflow around video settings, metadata, and history tracking
+- See `CHANGELOG.md` for the complete revision history
+
 ## License
 
 MIT

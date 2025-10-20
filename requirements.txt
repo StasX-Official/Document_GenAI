@@ -3,6 +3,9 @@ openai
 google-generativeai
 xai-sdk
 requests
+anthropic
+mistralai
+groq
 
 # Document and image handling
 python-docx
@@ -14,7 +17,7 @@ transformers
 torch
 
 # Conversions and rendering
-python-docx2pdf
+docx2pdf
 weasyprint
 
 # Visualization and audio
